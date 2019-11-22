@@ -142,7 +142,7 @@ def resolv_inv_scara(x,y,z,roll,g):
     v3max = 1000
     v4max = 360
     vmax = array([v1max,v2max,v3max,v4max])
-    dt = 1e-4   # diferencial de tiempo para hacer los gráficos.
+    dt = 0.1    # diferencial de tiempo en mm para hacer los gráficos.
                 # Es conveniente que divida a tacc
     
 # In[]
@@ -150,9 +150,29 @@ def resolv_inv_scara(x,y,z,roll,g):
 def gen_tray(POSE_vec,td_vec):
     
     
+    cant_pose = len(POSE_vec[:,0])
+    var_art_pos = zeros(4,cant_pose)
+    for id,POSE in enumerate(POSE_vec):
+        var_art_pos[:,id] =  resolv_inv_scara(*POSE)
     
     
     
+    var_art, var_art_der, T_vec = gen_tray_POSE(var_art_pos,td_vec)
+    t = arange(-tacc,np.sum(T_vec) +tacc, dt)
+    fig_t1,ax_t1 = plt.subplot(2)
+    ax_t1[0].plot(t, var_art[0,:])
+    ax_t1[1].plot(t, var_art_der[0,:])
+    ax_t1[0].grid(); ax_t1[1].grid()
+    ax_t1[0].leyend(); ax_t1[1].leyend()
+    
+    
+    #fig_t2,ax_t2 = plt.subplot()
+    
+    
+    #fig_d3,ax_d3 = plt.subplot()
+    
+    
+    #fig_t4,ax_t4 = plt.subplot()
     
     
     
@@ -185,11 +205,20 @@ def gen_tray_POSE(var_art_pos,td):
                     [],
                     [])
     
+    var_art_der = array([],
+                        [],
+                        [],
+                        [])
+    
+    
     # Inicialización de matrix A, B y C
     A = zeros(4,cant_tray)
     B = zeros(4,cant_tray)
     C = zeros(4,cant_tray)
     A[:,0] = var_art_pos[:,0]
+    
+    # Inicialización del vector donde se guardan los valores de T de cada trayectoria
+    T_vec = zeros(cant_tray)
     
     for i in arange(cant_tray):
         
@@ -203,10 +232,36 @@ def gen_tray_POSE(var_art_pos,td):
         T = amax([2*tacc,DC/vmax,td[i]])
         
         # Calculo de las variables articulares en la zona 1
-        var_art_zoneI = zeros(4, )
-    
-    
-    
-    
+        t = arange(-tacc,tacc,dt)
+        var_art_zona1 = DC*((t+tacc)**2)/(4*T*tacc) + DA*((t-tacc)**2)/(4*tacc*2) + B
+        var_art_der_zona1 = DC*(t + tacc)/ (2*T*tacc) + DA*(t-tacc)/(2*tacc**2)
+        
+        # Se lo agrego al vector de las variables articulares
+        var_art = concatenate((var_art,var_art_zona1))
+        var_art_der = concatenate((var_art_der,var_art_der_zona1))
+        
+        
+        # Calculo de las variables articulares en la zona 2
+        
+        T = (int(T/dt) + 1 )*dt # En caso de que T no sea divisible por dt, tomo 
+                                # el valor más cercano y mayor a T que sea divisible
+        
+        t = arange(tacc,T1 - tacc,dt)
+        var_art_zona2 = DC*t/T + B
+        var_art_der_zona2 = DC/T
+        
+        # Se lo agrego al vector de las variables articulares
+        
+        var_art = concatenate((var_art,var_art_zona2))
+        var_art_der = concatenate((var_art_der,var_art_der_zona2))
+        
+        
+        # Actualizo el valor de T_vec con el valor de T usado en esta trayectoria
+        T_vec[i] = T
+        
+        # Actualizo la matriz A con el valor a donde llegaron las variables articuladas
+        A[:,i+1] = var_art[-1]
+        
+        return var_art, var_art_der, T_vec
     
     
