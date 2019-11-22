@@ -141,7 +141,72 @@ def resolv_inv_scara(x,y,z,roll,g):
     v2max = 180
     v3max = 1000
     v4max = 360
+    vmax = array([v1max,v2max,v3max,v4max])
+    dt = 1e-4   # diferencial de tiempo para hacer los gráficos.
+                # Es conveniente que divida a tacc
     
 # In[]
+
+def gen_tray(POSE_vec,td_vec):
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+# In[]
+    
+def gen_tray_POSE(var_art_pos,td):
+    
+    
+    """
+    Debe devolver:  - La matriz con los valores de las variables articulares
+                    - La matriz con los valores de las derivadas de las variables articulares
+                    - vector de los valores de T en cada tramos (esto es para graficar después)
+    """
+    
+    # var_art_pos es vector de los valores a donde quiere ir las variables articuladas
+    #   var_art_pos[0] es la posición de la que sale. Debe tener minimo 2 valores   
+    # td tiempo deseado 
+    
+    
+    cant_tray = len(var_art_pos[0,:]) -1 # Cantidad de trayectorias
+    
+    # Inicialización de las variables articulares
+    var_art = array([],
+                    [],
+                    [],
+                    [])
+    
+    # Inicialización de matrix A, B y C
+    A = zeros(4,cant_tray)
+    B = zeros(4,cant_tray)
+    C = zeros(4,cant_tray)
+    A[:,0] = var_art_pos[:,0]
+    
+    for i in arange(cant_tray):
+        
+        # Seteo valores de B, C y delta A y delta C en cada trayectoria
+        B = var_art_pos[:,i]
+        C = var_art_pos[:,i+1]
+        DA = A-B
+        DC = C-B
+        
+        # Calculo del tiempo en que se mueven los ejes
+        T = amax([2*tacc,DC/vmax,td[i]])
+        
+        # Calculo de las variables articulares en la zona 1
+        var_art_zoneI = zeros(4, )
+    
+    
+    
+    
     
     
