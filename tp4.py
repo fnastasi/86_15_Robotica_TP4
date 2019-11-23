@@ -13,16 +13,17 @@ INFO IMPORTANTE
 
 """
 # In[]
-
+import numpy as np
 from numpy import *
 import matplotlib.pyplot as plt
-from tp1_modificado import *
+#from tp1_modificado import *
 
 # In[]
-
 a1 = 200
 a2 = 200
 a = 200 # Como a1 = a2 se define a = a1 = a2
+
+tol = 1e-6
 
 # In[]
 # Defino una función que me devuelve la matriz homogenea que representa 
@@ -31,9 +32,6 @@ a = 200 # Como a1 = a2 se define a = a1 = a2
 # ángulos deben estar en radianes
 def DH_hom_mat(theta,d,a,alpha):
     
-    # Se ponen en rango [-180,180)los ángulos
-    #theta = get_in_range(theta)
-    #alpha = get_in_range(alpha)
     
     
     R = array(
@@ -151,18 +149,20 @@ vmax = array([v1max,v2max,v3max,v4max])
 def gen_tray(POSE_vec,td_vec,dt):
     """
     Función para graficar:
-        Obtiene los vectores que son los datos de la trayectoria y los grafica
+        Obtiene los vectores de gen_tray_POSE que son los datos de la trayectoria y los grafica
     """
     
-    cant_pose = len(POSE_vec[:,0])
-    var_art_pos = zeros((4,cant_pose))
+    cant_pose = len(POSE_vec[:,0]) # cantidad de pose's ingresadas
+    var_art_pos = zeros((4,cant_pose)) # Variable para guardar el resultado del problema inverso para cada pose
+    
+    # Cálculo del problema inverso para cada pose
     for id,POSE in enumerate(POSE_vec):
         var_art_pos[:,id] =  resolv_inv_scara(*POSE)
     
     
-    
+    # Cálculo de trayectoria
     var_art, var_art_der, T_vec = gen_tray_POSE(var_art_pos,td_vec,dt)
-    t = arange(-tacc,np.sum(T_vec) +tacc, dt)
+    t = arange(-tacc,np.sum(T_vec) +tacc, dt) # Variable de tiempo. Empieza de -tacc, y termina en la suma de todos los tiempos de trayectoria + tacc
     
     
     # Gráficos de las variables articulares
@@ -218,6 +218,58 @@ def gen_tray(POSE_vec,td_vec,dt):
     
     fig_v.savefig("var_art_der.png")
     
+    
+    
+    #############################################################
+    # Gráficos de la posición de la TCP en la terna 0 en el plano
+    #############################################################
+    
+    TCP_x = array([])
+    TCP_y = array([])
+    
+    # Variables para graficar la velocidad
+    cant_flechas = 10
+    X = zeros( int( len(var_art[0,:])/cant_flechas) )
+    Y = zeros( int( len(var_art[0,:])/cant_flechas) )
+    V_var_art = zeros(4).reshape(4,1)
+    V_x = zeros(len(X))
+    V_y = zeros(len(Y))
+    
+    for i in arange(len(var_art.T)):
+        j= 0
+        A,g = prob_dir_scara(*var_art[:,i])
+        TCP_x = append(TCP_x,A[0,3])
+        TCP_y = append(TCP_y,A[1,3])
+        if not i%len(X):
+            X[j] = TCP_x[-1]
+            Y[j] = TCP_y[-1]
+            V_var_art = var_art_der[:,i].reshape(4,1)
+            #print(shape(calc_Jac_ter0(*var_art[:,i]) ))
+            #print(shape(V_var_art))
+            V_x[j] = dot( calc_Jac_ter0(*var_art[:,i]),V_var_art )[0] 
+            V_y[j] = dot( calc_Jac_ter0(*var_art[:,i]),V_var_art )[1]
+            j = j+1
+        
+    #print(var_art[:,0])    
+    #print(prob_dir_scara(*var_art[:,0]))
+    #print(var_art[:,-1])
+    #print(prob_dir_scara(*var_art[:,-1]))
+    #print(var_art[:,-1000])
+    #print(prob_dir_scara(*var_art[:,-1000]))
+    
+    # Variables para graficar la velocidad sobre la trayectoria
+    
+    fig,ax = plt.subplots()
+    ax.plot(TCP_x,TCP_y)
+    ax.set_xlabel(r"$TCP_x$")
+    ax.set_ylabel(r"$TCP_y$")    
+    ax.grid()
+    
+    fix,ax = plt.subplots()
+    print(V_x)
+    print(V_y)
+    ax.quiver(X, Y, V_x, V_y)
+    
 # In[]
     
 def gen_tray_POSE(var_art_pos,td,dt):
@@ -227,7 +279,7 @@ def gen_tray_POSE(var_art_pos,td,dt):
     Función principal: calcula los vectores que son los valores de las variables articulares durante las trayectorias
     Debe devolver:  - La matriz con los valores de las variables articulares
                     - La matriz con los valores de las derivadas de las variables articulares
-                    - vector de los valores de T en cada tramos (esto es para graficar después)
+                    - vector de los valores de T (tiempo de trayectoria) en cada tramo (esto es para graficar después)
     """
     
     # var_art_pos es vector de los valores a donde quiere ir las variables articuladas
@@ -266,11 +318,11 @@ def gen_tray_POSE(var_art_pos,td,dt):
         DA = A-B
         DC = C-B
         
-        # Calculo del tiempo en que se mueven los ejes
+        # Cálculo del tiempo en que se mueven los ejes
         tmax = amax(DC.reshape(1,4)/vmax)
         T = amax([2*tacc,tmax,td[i]])
         
-        # Calculo de las variables articulares en la zona 1
+        # Cálculo de las variables articulares en la zona 1
         t = arange(-tacc,tacc,dt)
         var_art_zona1 = DC*((t+tacc)**2)/(4*T*tacc) + DA*((t-tacc)**2)/(4*tacc**2) + B
         var_art_der_zona1 = DC*(t + tacc)/ (2*T*tacc) + DA*(t-tacc)/(2*tacc**2)
@@ -318,8 +370,19 @@ def gen_tray_POSE(var_art_pos,td,dt):
     # Se lo agrego al vector de las variables articulares
     var_art = concatenate((var_art,var_art_zona1),axis=1)
     var_art_der = concatenate((var_art_der,var_art_der_zona1),axis=1)
+
     return var_art, var_art_der, T_vec
     
+
+# In[]
+"""
+Cálculo del jacobiano del robot scara en la terna 0
+"""    
+
+def calc_Jac_ter0(t1,t2,d3,t4):
+    J = array([[-a2*sin(t1+t2) - a1*sin(t1),    -a2*sin(t1+t2),  0 ,    0],
+               [a2*cos(t1+t2) + a1*cos(t1),    a2*cos(t1+t2),  0,  0],
+               [0,  0,  1,  0],
+               [1,  1,  0,  1] ])
+    return J    
     
-
-
