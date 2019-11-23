@@ -119,74 +119,112 @@ def resolv_inv_scara(x,y,z,roll,g):
     P = array([[x,y,z]])
     A = concatenate( (R,P.T),axis=1)
     A = concatenate((A,array([[0,0,0,1]])))
-    print(A)
     return prob_inv_scara(A,g)
 
 
 # In[]
-    
+"""    
 # Prueba problema indirecto:
     x=200
     y=200
-    z=200
+    z=-100
     roll= 0
-    g=1
+    g=-1
     t1,t2,d3,t4 = resolv_inv_scara(x,y,z,roll,g)
-
+"""
 
 # In[]
+
+# Constantes en mm y ms
     
-    tacc = 200
-    v1max = 90
-    v2max = 180
-    v3max = 1000
-    v4max = 360
-    vmax = array([v1max,v2max,v3max,v4max])
-    dt = 0.1    # diferencial de tiempo en mm para hacer los gráficos.
+tacc = 200
+v1max = 90/1000
+v2max = 180/1000
+v3max = 1000/1000
+v4max = 360/1000
+vmax = array([v1max,v2max,v3max,v4max])
+#dt = 0.1    # diferencial de tiempo en mm para hacer los gráficos.
                 # Es conveniente que divida a tacc
     
 # In[]
 
-def gen_tray(POSE_vec,td_vec):
-    
+def gen_tray(POSE_vec,td_vec,dt):
+    """
+    Función para graficar:
+        Obtiene los vectores que son los datos de la trayectoria y los grafica
+    """
     
     cant_pose = len(POSE_vec[:,0])
-    var_art_pos = zeros(4,cant_pose)
+    var_art_pos = zeros((4,cant_pose))
     for id,POSE in enumerate(POSE_vec):
         var_art_pos[:,id] =  resolv_inv_scara(*POSE)
     
     
     
-    var_art, var_art_der, T_vec = gen_tray_POSE(var_art_pos,td_vec)
+    var_art, var_art_der, T_vec = gen_tray_POSE(var_art_pos,td_vec,dt)
     t = arange(-tacc,np.sum(T_vec) +tacc, dt)
-    fig_t1,ax_t1 = plt.subplot(2)
-    ax_t1[0].plot(t, var_art[0,:])
-    ax_t1[1].plot(t, var_art_der[0,:])
-    ax_t1[0].grid(); ax_t1[1].grid()
-    ax_t1[0].leyend(); ax_t1[1].leyend()
     
     
-    #fig_t2,ax_t2 = plt.subplot()
+    # Gráficos de las variables articulares
+    fig,ax_t = plt.subplots()
+    ax_t.plot(t, var_art[0,:],'r-',label=r"$\theta_1$")
+    ax_t.plot(t, var_art[1,:],'b-',label=r"$\theta_2$")
+    ax_t.plot(t, var_art[3,:],'g-',label=r"$\theta_4$")
+    
+    ax_t.set_ylim(-100,100)
+    
+    ax_t.minorticks_on()
+    ax_t.grid(which='both')
+    
+    ax_d = ax_t.twinx()
+    ax_d.plot(t, var_art[2,:],'k',label=r"$d_3$")
+    ax_d.set_ylim(-225,-75)
+    
+    ax_t.set_xlabel("Tiempo [ms]")
+    ax_t.set_ylabel(r"$\theta_i [°]$")
+    ax_d.set_ylabel(r"$d_3 [mm]$")
+    
+    ax_t.legend()
+    ax_d.legend(loc='upper center')
+    
+    fig.savefig("var_art.png")
     
     
-    #fig_d3,ax_d3 = plt.subplot()
     
+    ##############################
+    # Gráficos de las velocidades
+    ##############################
     
-    #fig_t4,ax_t4 = plt.subplot()
+    fig_v,ax_t_v = plt.subplots()
+    ax_t_v.plot(t, var_art_der[0,:]*1e3,'r-',label=r"$\dot{\theta}_1$") # Unidades ° /s (por eso se multiplica por 1e3)
+    ax_t_v.plot(t, var_art_der[1,:]*1e3,'b-',label=r"$\dot{\theta}_2$")
+    ax_t_v.plot(t, var_art_der[3,:]*1e3,'g-',label=r"$\dot{\theta}_4$")
     
+    ax_t_v.set_ylim(-200,200)
     
+    ax_t_v.minorticks_on()
+    ax_t_v.grid(which='both')
     
+    ax_d_v = ax_t_v.twinx()
+    ax_d_v.plot(t, var_art_der[2,:]*1e3,'k',label=r"$\dot{d}_3$") # Unidades mm/s (por eso se multiplica por 1e3)
+    ax_d_v.set_ylim(-120,120)
     
+    ax_t_v.set_xlabel("Tiempo [ms]")
+    ax_t_v.set_ylabel(r"$\theta_i [°/s]$")
+    ax_d_v.set_ylabel(r"$d_3 [mm/s]$")
     
+    ax_t_v.legend()
+    ax_d_v.legend()
     
-    
+    fig_v.savefig("var_art_der.png")
     
 # In[]
     
-def gen_tray_POSE(var_art_pos,td):
+def gen_tray_POSE(var_art_pos,td,dt):
     
     
     """
+    Función principal: calcula los vectores que son los valores de las variables articulares durante las trayectorias
     Debe devolver:  - La matriz con los valores de las variables articulares
                     - La matriz con los valores de las derivadas de las variables articulares
                     - vector de los valores de T en cada tramos (esto es para graficar después)
@@ -200,22 +238,22 @@ def gen_tray_POSE(var_art_pos,td):
     cant_tray = len(var_art_pos[0,:]) -1 # Cantidad de trayectorias
     
     # Inicialización de las variables articulares
-    var_art = array([],
-                    [],
-                    [],
-                    [])
+    var_art = array([[],
+                     [],
+                     [],
+                     []])
     
-    var_art_der = array([],
-                        [],
-                        [],
-                        [])
+    var_art_der = array([[],
+                         [],
+                         [],
+                         []])
     
     
-    # Inicialización de matrix A, B y C
-    A = zeros(4,cant_tray)
-    B = zeros(4,cant_tray)
-    C = zeros(4,cant_tray)
-    A[:,0] = var_art_pos[:,0]
+    # Inicialización de los vectores A, B y C
+    A = zeros(4)
+    B = zeros(4)
+    C = zeros(4)
+    A = var_art_pos[:,0].reshape(4,1)
     
     # Inicialización del vector donde se guardan los valores de T de cada trayectoria
     T_vec = zeros(cant_tray)
@@ -223,22 +261,23 @@ def gen_tray_POSE(var_art_pos,td):
     for i in arange(cant_tray):
         
         # Seteo valores de B, C y delta A y delta C en cada trayectoria
-        B = var_art_pos[:,i]
-        C = var_art_pos[:,i+1]
+        B = var_art_pos[:,i].reshape(4,1)
+        C = var_art_pos[:,i+1].reshape(4,1)
         DA = A-B
         DC = C-B
         
         # Calculo del tiempo en que se mueven los ejes
-        T = amax([2*tacc,DC/vmax,td[i]])
+        tmax = amax(DC.reshape(1,4)/vmax)
+        T = amax([2*tacc,tmax,td[i]])
         
         # Calculo de las variables articulares en la zona 1
         t = arange(-tacc,tacc,dt)
-        var_art_zona1 = DC*((t+tacc)**2)/(4*T*tacc) + DA*((t-tacc)**2)/(4*tacc*2) + B
+        var_art_zona1 = DC*((t+tacc)**2)/(4*T*tacc) + DA*((t-tacc)**2)/(4*tacc**2) + B
         var_art_der_zona1 = DC*(t + tacc)/ (2*T*tacc) + DA*(t-tacc)/(2*tacc**2)
         
         # Se lo agrego al vector de las variables articulares
-        var_art = concatenate((var_art,var_art_zona1))
-        var_art_der = concatenate((var_art_der,var_art_der_zona1))
+        var_art = concatenate((var_art,var_art_zona1),axis=1)
+        var_art_der = concatenate((var_art_der,var_art_der_zona1),axis=1)
         
         
         # Calculo de las variables articulares en la zona 2
@@ -246,22 +285,41 @@ def gen_tray_POSE(var_art_pos,td):
         T = (int(T/dt) + 1 )*dt # En caso de que T no sea divisible por dt, tomo 
                                 # el valor más cercano y mayor a T que sea divisible
         
-        t = arange(tacc,T1 - tacc,dt)
+        t = arange(tacc,T - tacc,dt)
         var_art_zona2 = DC*t/T + B
-        var_art_der_zona2 = DC/T
+        var_art_der_zona2 = DC/T*ones((4,len(t)))
         
         # Se lo agrego al vector de las variables articulares
         
-        var_art = concatenate((var_art,var_art_zona2))
-        var_art_der = concatenate((var_art_der,var_art_der_zona2))
-        
+        var_art = concatenate((var_art,var_art_zona2),axis=1)
+        var_art_der = concatenate((var_art_der,var_art_der_zona2),axis=1)
         
         # Actualizo el valor de T_vec con el valor de T usado en esta trayectoria
         T_vec[i] = T
-        
         # Actualizo la matriz A con el valor a donde llegaron las variables articuladas
-        A[:,i+1] = var_art[-1]
+        A = var_art[:,-1].reshape(4,1)
         
-        return var_art, var_art_der, T_vec
+        
+        
+    # Se hace una última zona 1 al llegar a la última POSE
+    
+    # Seteo valores de B, C y delta A y delta C en la última trayectoria
+    B = C
+    DA = A-B
+    DC = C-B # Debería ser 0
+    
+    # Calculo de las variables articulares en la zona 1
+    t = arange(-tacc,tacc,dt)
+    var_art_zona1 = DC*((t+tacc)**2)/(4*T*tacc) + DA*((t-tacc)**2)/(4*tacc**2) + B
+    var_art_der_zona1 = DC*(t + tacc)/ (2*T*tacc) + DA*(t-tacc)/(2*tacc**2)
+    
+        
+    
+    # Se lo agrego al vector de las variables articulares
+    var_art = concatenate((var_art,var_art_zona1),axis=1)
+    var_art_der = concatenate((var_art_der,var_art_der_zona1),axis=1)
+    return var_art, var_art_der, T_vec
     
     
+
+
