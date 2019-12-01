@@ -280,12 +280,13 @@ def gen_tray_POSE(var_art_pos,td,dt):
     Debe devolver:  - La matriz con los valores de las variables articulares
                     - La matriz con los valores de las derivadas de las variables articulares
                     - vector de los valores de T (tiempo de trayectoria) en cada tramo (esto es para graficar después)
+    
+    
+    var_art_pos es vector de los valores a donde quiere ir las variables articuladas
+    var_art_pos[0] es la posición de la que sale. Debe tener minimo 2 valores   
+
+    td tiempo deseado 
     """
-    
-    # var_art_pos es vector de los valores a donde quiere ir las variables articuladas
-    #   var_art_pos[0] es la posición de la que sale. Debe tener minimo 2 valores   
-    # td tiempo deseado 
-    
     
     cant_tray = len(var_art_pos[0,:]) -1 # Cantidad de trayectorias
     
@@ -321,6 +322,7 @@ def gen_tray_POSE(var_art_pos,td,dt):
         # Cálculo del tiempo en que se mueven los ejes
         tmax = amax(DC.reshape(1,4)/vmax)
         T = amax([2*tacc,tmax,td[i]])
+        print(T)
         
         # Cálculo de las variables articulares en la zona 1
         t = arange(-tacc,tacc,dt)
