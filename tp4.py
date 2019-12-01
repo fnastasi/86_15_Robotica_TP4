@@ -152,6 +152,13 @@ def gen_tray(POSE_vec,td_vec,dt):
         Obtiene los vectores de gen_tray_POSE que son los datos de la trayectoria y los grafica
     """
     
+    global tacc
+    # Si tacc no es divisible por dt, asigno a tacc el valor más cercano y
+    # superior a si mismo divisible por tacc. Esto se hace para
+    # que empalme bien los vectores de trayectoria de las variables articulares
+    tacc = (int(tacc/dt) + 1 )*dt
+    
+    
     cant_pose = len(POSE_vec[:,0]) # cantidad de pose's ingresadas
     var_art_pos = zeros((4,cant_pose)) # Variable para guardar el resultado del problema inverso para cada pose
     
@@ -165,111 +172,15 @@ def gen_tray(POSE_vec,td_vec,dt):
     t = arange(-tacc,np.sum(T_vec) +tacc, dt) # Variable de tiempo. Empieza de -tacc, y termina en la suma de todos los tiempos de trayectoria + tacc
     
     
-    # Gráficos de las variables articulares
-    fig,ax_t = plt.subplots()
-    ax_t.plot(t, var_art[0,:],'r-',label=r"$\theta_1$")
-    ax_t.plot(t, var_art[1,:],'b-',label=r"$\theta_2$")
-    ax_t.plot(t, var_art[3,:],'g-',label=r"$\theta_4$")
-    
-    ax_t.set_ylim(-100,100)
-    
-    ax_t.minorticks_on()
-    ax_t.grid(which='both')
-    
-    ax_d = ax_t.twinx()
-    ax_d.plot(t, var_art[2,:],'k',label=r"$d_3$")
-    ax_d.set_ylim(-225,-75)
-    
-    ax_t.set_xlabel("Tiempo [ms]")
-    ax_t.set_ylabel(r"$\theta_i [°]$")
-    ax_d.set_ylabel(r"$d_3 [mm]$")
-    
-    ax_t.legend()
-    ax_d.legend(loc='upper center')
-    
-    fig.savefig("var_art.png")
+    # graficos de variables articulares y velocidades
+    graf_var_art(t,var_art,var_art_der)
     
     
-    
-    ##############################
-    # Gráficos de las velocidades
-    ##############################
-    
-    fig_v,ax_t_v = plt.subplots()
-    ax_t_v.plot(t, var_art_der[0,:]*1e3,'r-',label=r"$\dot{\theta}_1$") # Unidades ° /s (por eso se multiplica por 1e3)
-    ax_t_v.plot(t, var_art_der[1,:]*1e3,'b-',label=r"$\dot{\theta}_2$")
-    ax_t_v.plot(t, var_art_der[3,:]*1e3,'g-',label=r"$\dot{\theta}_4$")
-    
-    ax_t_v.set_ylim(-200,200)
-    
-    ax_t_v.minorticks_on()
-    ax_t_v.grid(which='both')
-    
-    ax_d_v = ax_t_v.twinx()
-    ax_d_v.plot(t, var_art_der[2,:]*1e3,'k',label=r"$\dot{d}_3$") # Unidades mm/s (por eso se multiplica por 1e3)
-    ax_d_v.set_ylim(-120,120)
-    
-    ax_t_v.set_xlabel("Tiempo [ms]")
-    ax_t_v.set_ylabel(r"$\theta_i [°/s]$")
-    ax_d_v.set_ylabel(r"$d_3 [mm/s]$")
-    
-    ax_t_v.legend()
-    ax_d_v.legend()
-    
-    fig_v.savefig("var_art_der.png")
+    # graficos de trayectorias
+    graf_tray(var_art)
     
     
-    
-    #############################################################
-    # Gráficos de la posición de la TCP en la terna 0 en el plano
-    #############################################################
-    
-    TCP_x = array([])
-    TCP_y = array([])
-    
-    # Variables para graficar la velocidad
-    cant_flechas = 10
-    X = zeros( int( len(var_art[0,:])/cant_flechas) )
-    Y = zeros( int( len(var_art[0,:])/cant_flechas) )
-    V_var_art = zeros(4).reshape(4,1)
-    V_x = zeros(len(X))
-    V_y = zeros(len(Y))
-    
-    for i in arange(len(var_art.T)):
-        j= 0
-        A,g = prob_dir_scara(*var_art[:,i])
-        TCP_x = append(TCP_x,A[0,3])
-        TCP_y = append(TCP_y,A[1,3])
-        if not i%len(X):
-            X[j] = TCP_x[-1]
-            Y[j] = TCP_y[-1]
-            V_var_art = var_art_der[:,i].reshape(4,1)
-            #print(shape(calc_Jac_ter0(*var_art[:,i]) ))
-            #print(shape(V_var_art))
-            V_x[j] = dot( calc_Jac_ter0(*var_art[:,i]),V_var_art )[0] 
-            V_y[j] = dot( calc_Jac_ter0(*var_art[:,i]),V_var_art )[1]
-            j = j+1
-        
-    #print(var_art[:,0])    
-    #print(prob_dir_scara(*var_art[:,0]))
-    #print(var_art[:,-1])
-    #print(prob_dir_scara(*var_art[:,-1]))
-    #print(var_art[:,-1000])
-    #print(prob_dir_scara(*var_art[:,-1000]))
-    
-    # Variables para graficar la velocidad sobre la trayectoria
-    
-    fig,ax = plt.subplots()
-    ax.plot(TCP_x,TCP_y)
-    ax.set_xlabel(r"$TCP_x$")
-    ax.set_ylabel(r"$TCP_y$")    
-    ax.grid()
-    
-    fix,ax = plt.subplots()
-    print(V_x)
-    print(V_y)
-    ax.quiver(X, Y, V_x, V_y)
-    
+
 # In[]
     
 def gen_tray_POSE(var_art_pos,td,dt):
@@ -287,6 +198,9 @@ def gen_tray_POSE(var_art_pos,td,dt):
 
     td tiempo deseado 
     """
+    
+    global tacc
+    tacc = (int(tacc/dt) + 1 )*dt
     
     cant_tray = len(var_art_pos[0,:]) -1 # Cantidad de trayectorias
     
@@ -322,9 +236,11 @@ def gen_tray_POSE(var_art_pos,td,dt):
         # Cálculo del tiempo en que se mueven los ejes
         tmax = amax(DC.reshape(1,4)/vmax)
         T = amax([2*tacc,tmax,td[i]])
-        print(T)
+        
         
         # Cálculo de las variables articulares en la zona 1
+        
+        
         t = arange(-tacc,tacc,dt)
         var_art_zona1 = DC*((t+tacc)**2)/(4*T*tacc) + DA*((t-tacc)**2)/(4*tacc**2) + B
         var_art_der_zona1 = DC*(t + tacc)/ (2*T*tacc) + DA*(t-tacc)/(2*tacc**2)
@@ -375,6 +291,179 @@ def gen_tray_POSE(var_art_pos,td,dt):
 
     return var_art, var_art_der, T_vec
     
+
+# In[]
+    
+def graf_var_art(t,var_art,var_art_der):
+    
+    # Gráficos de las variables articulares
+    
+    #### tita 1 ####
+    fig, ax = plt.subplots(2,1)    
+    
+    ax[0].minorticks_on();ax[0].grid(which='both')
+    ax[1].minorticks_on();ax[1].grid(which='both')
+    
+    ax[0].plot(t, var_art[0,:],label=r"$\theta_1$")
+    ax[1].plot(t, var_art_der[0,:]*1e3,label=r"$\dot{\theta}_1$") # Unidades ° /s (por eso se multiplica por 1e3)
+    ax[1].set_xlabel("Tiempo [ms]")
+    ax[0].set_ylabel(r"$\theta_1 [°]$")
+    ax[1].set_ylabel(r"$\dot{\theta}_1 [°/s]$")
+    ax[0].legend(); ax[1].legend()
+    #ax[0].grid() ; ax[1].grid() 
+    fig.savefig("tita1.png",dpi =300)
+    
+    
+    #### tita 2 ####
+    fig, ax = plt.subplots(2,1)    
+    
+    ax[0].minorticks_on();ax[0].grid(which='both')
+    ax[1].minorticks_on();ax[1].grid(which='both')
+    
+    ax[0].plot(t, var_art[1,:],label=r"$\theta_2$")
+    ax[1].plot(t, var_art_der[1,:]*1e3,label=r"$\dot{\theta}_2$") # Unidades ° /s (por eso se multiplica por 1e3)
+    ax[1].set_xlabel("Tiempo [ms]")
+    ax[0].set_ylabel(r"$\theta_2 [°]$")
+    ax[1].set_ylabel(r"$\dot{\theta}_2 [°/s]$")
+    ax[0].legend(); ax[1].legend()
+    #ax[0].grid() ; ax[1].grid() 
+    fig.savefig("tita2.png",dpi =300)
+    
+
+    
+    #### tita 2 ####
+    fig, ax = plt.subplots(2,1)    
+    
+    ax[0].minorticks_on();ax[0].grid(which='both')
+    ax[1].minorticks_on();ax[1].grid(which='both')
+    
+    ax[0].plot(t, var_art[2,:],label=r"$d_3$")
+    ax[1].plot(t, var_art_der[2,:]*1e3,label=r"$\dot{d}_3$") # Unidades ° /s (por eso se multiplica por 1e3)
+    ax[1].set_xlabel("Tiempo [ms]")
+    ax[0].set_ylabel(r"$d_3 [mm]$")
+    ax[1].set_ylabel(r"$\dot{d}_3 [mm/s]$")
+    ax[0].legend(); ax[1].legend()
+    #ax[0].grid() ; ax[1].grid() 
+    fig.savefig("d3.png",dpi =300)
+          
+    
+        #### tita 4 ####
+    fig, ax = plt.subplots(2,1)    
+    
+    ax[0].minorticks_on();ax[0].grid(which='both')
+    ax[1].minorticks_on();ax[1].grid(which='both')
+    
+    ax[0].plot(t, var_art[3,:],label=r"$\theta_4$")
+    ax[1].plot(t, var_art_der[3,:]*1e3,label=r"$\dot{\theta}_4$") # Unidades ° /s (por eso se multiplica por 1e3)
+    ax[1].set_xlabel("Tiempo [ms]")
+    ax[0].set_ylabel(r"$\theta_4 [°]$")
+    ax[1].set_ylabel(r"$\dot{\theta}_4 [°/s]$")
+    ax[0].legend(); ax[1].legend()
+    #ax[0].grid() ; ax[1].grid() 
+    fig.savefig("tita4.png",dpi =300)
+    
+    
+    
+    ## Todas juntas ##
+    
+    fig,ax_t = plt.subplots()
+    ax_t.plot(t, var_art[0,:],'r-',label=r"$\theta_1$")
+    ax_t.plot(t, var_art[1,:],'b-',label=r"$\theta_2$")
+    ax_t.plot(t, var_art[3,:],'g-',label=r"$\theta_4$")
+    
+    ax_t.set_ylim(-100,100)
+    
+    ax_t.minorticks_on()
+    ax_t.grid(which='both')
+    
+    ax_d = ax_t.twinx()
+    ax_d.plot(t, var_art[2,:],'k',label=r"$d_3$")
+    ax_d.set_ylim(-225,-75)
+    
+    ax_t.set_xlabel("Tiempo [ms]")
+    ax_t.set_ylabel(r"$\theta_i [°]$")
+    ax_d.set_ylabel(r"$d_3 [mm]$")
+    
+    ax_t.legend()
+    ax_d.legend(loc='upper center')
+    
+    fig.savefig("var_art.png",dpi =300)
+    
+    
+    
+    ##############################
+    # Gráficos de las velocidades
+    ##############################
+    
+    fig_v,ax_t_v = plt.subplots()
+    ax_t_v.plot(t, var_art_der[0,:]*1e3,'r-',label=r"$\dot{\theta}_1$") # Unidades ° /s (por eso se multiplica por 1e3)
+    ax_t_v.plot(t, var_art_der[1,:]*1e3,'b-',label=r"$\dot{\theta}_2$")
+    ax_t_v.plot(t, var_art_der[3,:]*1e3,'g-',label=r"$\dot{\theta}_4$")
+    
+    ax_t_v.set_ylim(-200,200)
+    
+    ax_t_v.minorticks_on()
+    ax_t_v.grid(which='both')
+    
+    ax_d_v = ax_t_v.twinx()
+    ax_d_v.plot(t, var_art_der[2,:]*1e3,'k',label=r"$\dot{d}_3$") # Unidades mm/s (por eso se multiplica por 1e3)
+    ax_d_v.set_ylim(-120,120)
+    
+    ax_t_v.set_xlabel("Tiempo [ms]")
+    ax_t_v.set_ylabel(r"$\theta_i [°/s]$")
+    ax_d_v.set_ylabel(r"$d_3 [mm/s]$")
+    
+    ax_t_v.legend()
+    ax_d_v.legend()
+    
+    fig_v.savefig("var_art_der.png",dpi =300)
+
+
+# In[]
+    
+def graf_tray(var_art):    
+    
+    #############################################################
+    # Gráficos de la posición de la TCP en la terna 0 en el plano
+    #############################################################
+    
+    TCP_x = array([])
+    TCP_y = array([])
+    
+    # Variables para graficar la velocidad
+    
+    for i in arange(len(var_art.T)):
+        A,g = prob_dir_scara(*var_art[:,i])
+        TCP_x = append(TCP_x,A[0,3])
+        TCP_y = append(TCP_y,A[1,3])        
+    
+    #print(var_art[:,0])    
+    #print(prob_dir_scara(*var_art[:,0]))
+    #print(var_art[:,-1])
+    #print(prob_dir_scara(*var_art[:,-1]))
+    #print(var_art[:,-1000])
+    #print(prob_dir_scara(*var_art[:,-1000]))
+    
+    
+    fig,ax = plt.subplots()
+    
+    ax.minorticks_on()
+    ax.grid(which='both')
+    
+    ax.plot(TCP_x,TCP_y,label="Trayectoria TCP")
+    ax.set_xlabel(r"$TCP_x$")
+    ax.set_ylabel(r"$TCP_y$")    
+    #ax.grid()
+    ax.legend()
+    fig.savefig("tray.png",dpi = 300)
+    
+    #fix,ax = plt.subplots()
+    #print(V_x)
+    #print(V_y)
+    #ax.quiver(X, Y, V_x, V_y)
+
+
+
 
 # In[]
 """
